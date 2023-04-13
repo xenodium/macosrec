@@ -47,7 +47,11 @@ struct RecordCommand: ParsableCommand {
     }
 
     if let windowNumber = screenshot {
-      recorder = WindowRecorder(for: CGWindowID(windowNumber)!)
+      guard let number = CGWindowID(windowNumber) else {
+        print("Error: Invalid window number")
+        Darwin.exit(1)
+      }
+      recorder = WindowRecorder(for: number)
       recorder?.screenshot()
       Darwin.exit(0)
     }
@@ -57,7 +61,11 @@ struct RecordCommand: ParsableCommand {
         print("Error: Already recording")
         Darwin.exit(1)
       }
-      recorder = WindowRecorder(for: CGWindowID(windowNumber)!)
+      guard let number = CGWindowID(windowNumber) else {
+        print("Error: Invalid window number")
+        Darwin.exit(1)
+      }
+      recorder = WindowRecorder(for: number)
       recorder?.start()
       return
     }
@@ -231,7 +239,10 @@ class WindowRecorder {
     images.reverse()
 
     while self.images.count > 0 {
-      let image = self.images.popLast()!
+      guard let image = self.images.popLast() else {
+        print("Error: invalid frame count")
+        exit(1)
+      }
       CGImageDestinationAddImage(
         destinationGIF, image,
         [
@@ -274,7 +285,7 @@ extension CGImage {
       kCGImageSourceCreateThumbnailFromImageAlways as String: true,
       kCGImageSourceCreateThumbnailWithTransform as String: true,
     ]
-    return CGImageSourceCreateThumbnailAtIndex(data, 0, options as CFDictionary)!
+    return CGImageSourceCreateThumbnailAtIndex(data, 0, options as CFDictionary)
   }
 }
 
@@ -289,9 +300,11 @@ func recordingPid() -> pid_t? {
   task.launch()
 
   let data = pipe.fileHandleForReading.readDataToEndOfFile()
-  let output = String(data: data, encoding: String.Encoding.utf8)
+  guard let output = String(data: data, encoding: String.Encoding.utf8) else {
+    return nil
+  }
 
-  let lines = output!.components(separatedBy: "\n")
+  let lines = output.components(separatedBy: "\n")
   for line in lines {
     if line.contains(name) && !line.contains("defunct") {
       let components = line.components(separatedBy: " ")
