@@ -173,7 +173,7 @@ class WindowRecorder {
         exit(1)
       }
       try data.write(to: url)
-      print("\(url.path)")
+      print("\((url.path as NSString).abbreviatingWithTildeInPath)")
       exit(0)
     } catch {
       print("Error: \(error.localizedDescription)")
@@ -255,7 +255,7 @@ class WindowRecorder {
         ] as CFDictionary)
     }
     if CGImageDestinationFinalize(destinationGIF) {
-      print("\(url.path)")
+      print("\((url.path as NSString).abbreviatingWithTildeInPath)")
       exit(0)
     } else {
       print("Error: could not save")
