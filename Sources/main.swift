@@ -27,6 +27,11 @@ signal(SIGINT) { _ in
   exit(0)
 }
 
+signal(SIGTERM) { _ in
+  recorder?.abort()
+  exit(0)
+}
+
 struct RecordCommand: ParsableCommand {
   @Flag(name: .shortAndLong, help: "List recordable windows.")
   var list: Bool = false
@@ -44,6 +49,8 @@ struct RecordCommand: ParsableCommand {
   @Flag(name: .shortAndLong, help: "End recording.")
   var end: Bool = false
 
+  @Flag(name: .shortAndLong, help: "Abort recording.")
+  var abort: Bool = false
   mutating func run() throws {
     if list {
       NSWorkspace.shared.printWindowList()
@@ -77,6 +84,19 @@ struct RecordCommand: ParsableCommand {
       let result = kill(recordingPid, SIGINT)
       if result != 0 {
         print("Error: Could not stop recording")
+        Darwin.exit(1)
+      }
+      Darwin.exit(0)
+    }
+
+    if abort {
+      guard let recordingPid = recordingPid() else {
+        print("Error: No recording")
+        Darwin.exit(1)
+      }
+      let result = kill(recordingPid, SIGTERM)
+      if result != 0 {
+        print("Error: Could not abort recording")
         Darwin.exit(1)
       }
       Darwin.exit(0)
@@ -205,6 +225,11 @@ class WindowRecorder {
     return CGWindowListCreateImage(
       CGRect.null, CGWindowListOption.optionIncludingWindow, self.window.number,
       CGWindowImageOption.boundsIgnoreFraming)
+  }
+
+  func abort() {
+    print("Aborted")
+    timer?.invalidate()
   }
 
   func stop() {
