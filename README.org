@@ -61,6 +61,14 @@ To end recording, send a SIGINT, (Ctrl+C from terminal). Alternatively, running 
   ~/Desktop/2023-04-14-08:21:45-Emacs.gif
 #+end_src
 
+** Optimizing gif
+
+The gifs can get pretty large fairly quickly depending on the lenght of the recording. Consider using something like [[https://www.lcdf.org/gifsicle/][gifsicle]] to reduce size. For example:
+
+#+begin_src sh
+  gifsicle -O3 large.gif --lossy=80 -o smaller.gif
+#+end_src
+
 * Disclaimer
 
 I built this util to record demos I post at [[https://xenodium.com][xenodium.com]]. Does the job so far, but can likely take improvements, specially around image handling efficiency. PRs totally welcome.
