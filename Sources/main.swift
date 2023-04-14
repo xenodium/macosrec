@@ -28,17 +28,21 @@ signal(SIGINT) { _ in
 }
 
 struct RecordCommand: ParsableCommand {
-  @Flag(help: "List recordable windows")
+  @Flag(name: .shortAndLong, help: "List recordable windows.")
   var list: Bool = false
 
-  @Option(help: "Take a screenshot")
+  @Option(
+    name: .shortAndLong,
+    help: ArgumentHelp("Take a screenshot of window number.", valueName: "window number"))
   var screenshot: String?
 
-  @Option(name: .shortAndLong, help: "Start recording window number.")
+  @Option(
+    name: .shortAndLong,
+    help: ArgumentHelp("Start recording window number.", valueName: "window number"))
   var record: String?
 
-  @Flag(help: "Stop recording.")
-  var stop: Bool = false
+  @Flag(name: .shortAndLong, help: "End recording.")
+  var end: Bool = false
 
   mutating func run() throws {
     if list {
@@ -70,7 +74,7 @@ struct RecordCommand: ParsableCommand {
       return
     }
 
-    if stop {
+    if end {
       guard let recordingPid = recordingPid() else {
         print("Error: No recording")
         Darwin.exit(1)

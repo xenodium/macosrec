@@ -1,0 +1,40 @@
+👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]
+
+* macosrec
+
+Take screenshots or videos of macOS windows from the command line.
+
+#+HTML: <img src="https://raw.githubusercontent.com/xenodium/macosrec/main/record.gif" width="80%" />
+
+#+begin_src shell
+  $ macosrec
+  USAGE: record-command [--list] [--screenshot <window number>] [--record <window number>] [--end]
+
+  OPTIONS:
+    -l, --list              List recordable windows.
+    -s, --screenshot <window number>
+                            Take a screenshot of window number.
+    -r, --record <window number>
+                            Start recording window number.
+    -e, --end               End recording.
+    -h, --help              Show help information.
+#+end_src
+
+* Screenshot
+
+Before taking a screenshot, identify the window number using =--list=.
+
+#+begin_src sh
+  $ macosrec --list
+
+  21902 Emacs
+  22024 Dock - Desktop Picture - Stone.png
+  22035 Firefox - Planet Emacslife
+#+end_src
+
+Use =--screenshot= + window number to take a screenshot.
+
+#+begin_src sh
+  ~ $ macosrec --screenshot 21902
+  ~/Desktop/2023-04-14-08:21:45-Emacs.png
+#+end_src
