@@ -4,7 +4,7 @@
 
 Take screenshots or videos of macOS windows from the command line.
 
-#+HTML: <img src="https://raw.githubusercontent.com/xenodium/macosrec/main/demo/record.gif" width="80%" /> <center><p><small><em>gif captured with macosrec</em></small></p></center>
+#+HTML: <img src="https://raw.githubusercontent.com/xenodium/macosrec/main/demo/record.gif" width="80%" /> <p><small><em>Note: This gif was captured with macosrec</em></small></p>
 
 #+begin_src shell
   $ macosrec
