@@ -51,10 +51,7 @@ struct RecordCommand: ParsableCommand {
     }
 
     if let windowNumber = screenshot {
-      guard let number = CGWindowID(windowNumber) else {
-        print("Error: Invalid window number")
-        Darwin.exit(1)
-      }
+      let number = resolveWindowID(windowNumber)
       recorder = WindowRecorder(for: number)
       recorder?.screenshot()
       Darwin.exit(0)
@@ -65,10 +62,8 @@ struct RecordCommand: ParsableCommand {
         print("Error: Already recording")
         Darwin.exit(1)
       }
-      guard let number = CGWindowID(windowNumber) else {
-        print("Error: Invalid window number")
-        Darwin.exit(1)
-      }
+
+      let number = resolveWindowID(windowNumber)
       recorder = WindowRecorder(for: number)
       recorder?.start()
       return
@@ -334,4 +329,19 @@ func getDesktopFileURL(suffix: String, ext: String) -> URL? {
   desktopURL.appendPathComponent(fileName)
 
   return desktopURL
+}
+
+func resolveWindowID(_ windowNumber: String) -> CGWindowID {
+  if let number = CGWindowID(windowNumber) {
+    return number
+  }
+  if let window = NSWorkspace.shared.allWindows().filter({
+    $0.app.trimmingCharacters(in: .whitespacesAndNewlines)
+      .caseInsensitiveCompare(windowNumber.trimmingCharacters(in: .whitespacesAndNewlines))
+      == .orderedSame
+  }).first {
+    return CGWindowID(window.number)
+  }
+  print("Error: Invalid window number")
+  Darwin.exit(1)
 }

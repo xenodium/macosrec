@@ -53,6 +53,8 @@ Before taking a video, identify the window number using =--list=.
 
 Use =--record= + window number to start recording a video (gif).
 
+/Note: you can also use application name and it will use the first window it finds belonging to it./
+
 To end recording, send a SIGINT signal (Ctrl+C from terminal). Alternatively, running =macosrec --end= from another session would also end the recording.
 
 #+begin_src sh
