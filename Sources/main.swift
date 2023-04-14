@@ -325,7 +325,7 @@ func recordingPid() -> pid_t? {
 
 func getDesktopFileURL(suffix: String, ext: String) -> URL? {
   let dateFormatter = DateFormatter()
-  dateFormatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
+  dateFormatter.dateFormat = "yyyy-MM-dd-HH:mm:ss"
   let timestamp = dateFormatter.string(from: Date())
   let fileName = timestamp + "-" + suffix + ext
 
