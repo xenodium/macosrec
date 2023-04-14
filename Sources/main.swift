@@ -51,6 +51,12 @@ struct RecordCommand: ParsableCommand {
 
   @Flag(name: .shortAndLong, help: "Abort recording.")
   var abort: Bool = false
+
+  @Option(
+    name: .shortAndLong,
+    help: ArgumentHelp(valueName: "optional output file path"))
+  var output: String?
+
   mutating func run() throws {
     if list {
       NSWorkspace.shared.printWindowList()
@@ -59,7 +65,11 @@ struct RecordCommand: ParsableCommand {
 
     if let windowNumber = screenshot {
       let number = resolveWindowID(windowNumber)
-      recorder = WindowRecorder(for: number)
+      if let output = output {
+        recorder = WindowRecorder(for: number, URL(fileURLWithPath: output))
+      } else {
+        recorder = WindowRecorder(for: number)
+      }
       recorder?.screenshot()
       Darwin.exit(0)
     }
@@ -71,7 +81,11 @@ struct RecordCommand: ParsableCommand {
       }
 
       let number = resolveWindowID(windowNumber)
-      recorder = WindowRecorder(for: number)
+      if let output = output {
+        recorder = WindowRecorder(for: number, URL(fileURLWithPath: output))
+      } else {
+        recorder = WindowRecorder(for: number)
+      }
       recorder?.start()
       return
     }
@@ -159,17 +173,18 @@ class WindowRecorder {
   private let fps = 10.0
   private var timer: Timer?
   private var images = [CGImage]()
+  private let urlOverride: URL?
 
   var interval: Double {
     1.0 / fps
   }
 
-  init(for windowNumber: CGWindowID) {
+  init(for windowNumber: CGWindowID, _ urlOverride: URL? = nil) {
     guard let foundWindow = NSWorkspace.shared.window(identifiedAs: windowNumber) else {
       print("Error: window not found")
       exit(1)
     }
-
+    self.urlOverride = urlOverride
     self.window = foundWindow
   }
 
@@ -179,7 +194,7 @@ class WindowRecorder {
         print("Error: No window image")
         exit(1)
       }
-      guard let url = getDesktopFileURL(suffix: window.app, ext: ".png") else {
+      guard let url = urlOverride ?? getDesktopFileURL(suffix: window.app, ext: ".png") else {
         print("Error: could craft URL to screenshot")
         exit(1)
       }
@@ -236,7 +251,7 @@ class WindowRecorder {
     print("Saving...")
     timer?.invalidate()
 
-    guard let url = getDesktopFileURL(suffix: window.app, ext: ".gif") else {
+    guard let url = urlOverride ?? getDesktopFileURL(suffix: window.app, ext: ".gif") else {
       print("Error: could craft URL to animation")
       exit(1)
     }
