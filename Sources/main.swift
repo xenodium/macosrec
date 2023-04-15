@@ -17,14 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import AVFoundation
 import ArgumentParser
-import Quartz
+import Cocoa
 
 var recorder: WindowRecorder?
 
 signal(SIGINT) { _ in
-  recorder?.stop()
-  exit(0)
+  recorder?.save()
 }
 
 signal(SIGTERM) { _ in
@@ -37,7 +37,7 @@ struct RecordCommand: ParsableCommand {
   var list: Bool = false
 
   @Option(
-    name: .shortAndLong,
+    name: [.customShort("x"), .long],
     help: ArgumentHelp("Take a screenshot of window number.", valueName: "window number"))
   var screenshot: String?
 
@@ -46,10 +46,16 @@ struct RecordCommand: ParsableCommand {
     help: ArgumentHelp("Start recording window number.", valueName: "window number"))
   var record: String?
 
-  @Flag(name: .shortAndLong, help: "End recording.")
-  var end: Bool = false
+  @Flag(name: .shortAndLong, help: "Record as mov.")
+  var mov: Bool = false
 
-  @Flag(name: .shortAndLong, help: "Abort recording.")
+  @Flag(name: .shortAndLong, help: "Record as gif.")
+  var gif: Bool = false
+
+  @Flag(name: .shortAndLong, help: "Save active recording.")
+  var save: Bool = false
+
+  @Flag(name: .shortAndLong, help: "Abort active recording.")
   var abort: Bool = false
 
   @Option(
@@ -64,13 +70,18 @@ struct RecordCommand: ParsableCommand {
     }
 
     if let windowNumber = screenshot {
+      if record != nil {
+        print("Error: can't use --screenshot and --record simultaneously")
+        Darwin.exit(1)
+      }
+
       let number = resolveWindowID(windowNumber)
       if let output = output {
-        recorder = WindowRecorder(for: number, URL(fileURLWithPath: output))
+        recorder = WindowRecorder(.png, for: number, URL(fileURLWithPath: output))
       } else {
-        recorder = WindowRecorder(for: number)
+        recorder = WindowRecorder(.png, for: number)
       }
-      recorder?.screenshot()
+      recorder?.save()
       Darwin.exit(0)
     }
 
@@ -80,17 +91,35 @@ struct RecordCommand: ParsableCommand {
         Darwin.exit(1)
       }
 
+      let mediaType = {
+        if screenshot != nil {
+          print("Error: can't use --screenshot and --record simultaneously")
+          Darwin.exit(1)
+        }
+
+        if mov {
+          return WindowRecorder.MediaType.mov
+        }
+
+        if gif {
+          return WindowRecorder.MediaType.gif
+        }
+
+        // Default to mov otherwise
+        return WindowRecorder.MediaType.mov
+      }()
+
       let number = resolveWindowID(windowNumber)
       if let output = output {
-        recorder = WindowRecorder(for: number, URL(fileURLWithPath: output))
+        recorder = WindowRecorder(mediaType, for: number, URL(fileURLWithPath: output))
       } else {
-        recorder = WindowRecorder(for: number)
+        recorder = WindowRecorder(mediaType, for: number)
       }
-      recorder?.start()
+      recorder?.record()
       return
     }
 
-    if end {
+    if save {
       guard let recordingPid = recordingPid() else {
         print("Error: No recording")
         Darwin.exit(1)
@@ -170,25 +199,75 @@ extension NSWorkspace {
 
 class WindowRecorder {
   private let window: WindowInfo
-  private let fps = 10.0
+  private let fps: Int32 = 10
   private var timer: Timer?
   private var images = [CGImage]()
   private let urlOverride: URL?
+  private let mediaType: MediaType
 
-  var interval: Double {
-    1.0 / fps
+  enum MediaType {
+    case gif
+    case mov
+    case png
   }
 
-  init(for windowNumber: CGWindowID, _ urlOverride: URL? = nil) {
+  var interval: Double {
+    1.0 / Double(fps)
+  }
+
+  init(_ mediaType: MediaType, for windowNumber: CGWindowID, _ urlOverride: URL? = nil) {
     guard let foundWindow = NSWorkspace.shared.window(identifiedAs: windowNumber) else {
       print("Error: window not found")
       exit(1)
     }
     self.urlOverride = urlOverride
     self.window = foundWindow
+    self.mediaType = mediaType
   }
 
-  func screenshot() {
+  func record() {
+    timer?.invalidate()
+    timer = Timer.scheduledTimer(
+      withTimeInterval: TimeInterval(interval), repeats: true,
+      block: { [weak self] _ in
+        guard let self = self else {
+          print("Error: No recorder")
+          exit(1)
+        }
+        guard
+          let image = windowImage()
+        else {
+          print("Error: No image from window")
+          exit(1)
+        }
+        DispatchQueue.global(qos: .default).sync {
+          guard let resizedImage = image.resize(compressionFactor: 1.0, scale: 0.7) else {
+            print("Error: Could not resize frame")
+            exit(1)
+          }
+          self.images.append(resizedImage)
+          // self.images.append(image)
+        }
+      })
+  }
+
+  func abort() {
+    print("Aborted")
+    timer?.invalidate()
+  }
+
+  func save() {
+    switch mediaType {
+    case .gif:
+      saveGif()
+    case .mov:
+      saveMov()
+    case .png:
+      savePng()
+    }
+  }
+
+  private func savePng() {
     do {
       guard let image = windowImage() else {
         print("Error: No window image")
@@ -211,44 +290,34 @@ class WindowRecorder {
     }
   }
 
-  func start() {
-    timer?.invalidate()
-    timer = Timer.scheduledTimer(
-      withTimeInterval: TimeInterval(interval), repeats: true,
-      block: { [weak self] _ in
-        guard let self = self else {
-          print("Error: No recorder")
-          exit(1)
-        }
-        guard
-          let image = windowImage()
-        else {
-          print("Error: No image from window")
-          exit(1)
-        }
-        DispatchQueue.global(qos: .default).sync {
-          guard let resizedImage = image.resize(compressionFactor: 1.0, scale: 0.7) else {
-            print("Error: Could not resize frame")
-            exit(1)
-          }
-          self.images.append(resizedImage)
-        }
-      })
-  }
-
-  func windowImage() -> CGImage? {
+  private func windowImage() -> CGImage? {
     return CGWindowListCreateImage(
       CGRect.null, CGWindowListOption.optionIncludingWindow, self.window.number,
       CGWindowImageOption.boundsIgnoreFraming)
   }
 
-  func abort() {
-    print("Aborted")
+  private func saveMov() {
+    print("Saving mov...")
     timer?.invalidate()
+
+    guard let url = urlOverride ?? getDesktopFileURL(suffix: window.app, ext: ".mov") else {
+      print("Error: could craft URL to animation")
+      exit(1)
+    }
+
+    createVideoFromImages(self.images, url, fps) { success, error in
+      if success {
+        print("\((url.path as NSString).abbreviatingWithTildeInPath)")
+        exit(0)
+      } else {
+        print("Error: \(error?.localizedDescription ?? "Unknown")")
+        exit(1)
+      }
+    }
   }
 
-  func stop() {
-    print("Saving...")
+  private func saveGif() {
+    print("Saving gif...")
     timer?.invalidate()
 
     guard let url = urlOverride ?? getDesktopFileURL(suffix: window.app, ext: ".gif") else {
@@ -277,7 +346,7 @@ class WindowRecorder {
     )
     images.reverse()
 
-    while self.images.count > 0 {
+    while !images.isEmpty {
       guard let image = self.images.popLast() else {
         print("Error: invalid frame count")
         exit(1)
@@ -286,9 +355,10 @@ class WindowRecorder {
         destinationGIF, image,
         [
           kCGImagePropertyGIFDictionary as String:
-            [(kCGImagePropertyGIFDelayTime as String): 1.0 / fps]
+            [(kCGImagePropertyGIFDelayTime as String): 1.0 / Double(fps)]
         ] as CFDictionary)
     }
+
     if CGImageDestinationFinalize(destinationGIF) {
       print("\((url.path as NSString).abbreviatingWithTildeInPath)")
       exit(0)
@@ -384,4 +454,114 @@ func resolveWindowID(_ windowNumber: String) -> CGWindowID {
   }
   print("Error: Invalid window number")
   Darwin.exit(1)
+}
+
+func createVideoFromImages(
+  _ images: [CGImage], _ outputFileURL: URL, _ fps: Int32,
+  completion: @escaping (Bool, Error?) -> Void
+) {
+  var images = Array(images.reversed())
+  let assetWriter: AVAssetWriter
+  do {
+    assetWriter = try AVAssetWriter(outputURL: outputFileURL, fileType: AVFileType.mov)
+  } catch {
+    completion(false, error)
+    return
+  }
+
+  guard let firstFrame = images.first else {
+    print("Error: No frames found")
+    Darwin.exit(1)
+  }
+
+  let videoWidth = firstFrame.width
+  let videoHeight = firstFrame.height
+
+  let videoSettings: [String: AnyObject] = [
+    AVVideoCodecKey: AVVideoCodecType.h264 as AnyObject,
+    AVVideoWidthKey: videoWidth as AnyObject,
+    AVVideoHeightKey: videoHeight as AnyObject,
+  ]
+
+  let assetWriterInput = AVAssetWriterInput(
+    mediaType: AVMediaType.video, outputSettings: videoSettings)
+  assetWriterInput.expectsMediaDataInRealTime = true
+
+  let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+    assetWriterInput: assetWriterInput,
+    sourcePixelBufferAttributes: [
+      kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32ARGB),
+      kCVPixelBufferWidthKey as String: videoWidth,
+      kCVPixelBufferHeightKey as String: videoHeight,
+    ]
+  )
+
+  assetWriter.add(assetWriterInput)
+
+  if !assetWriter.startWriting() {
+    completion(false, assetWriter.error)
+    return
+  }
+
+  assetWriter.startSession(atSourceTime: CMTime.zero)
+
+  var frameNumber = 0
+
+  assetWriterInput.requestMediaDataWhenReady(on: .main) {
+
+    if images.isEmpty {
+      assetWriterInput.markAsFinished()
+      assetWriter.finishWriting {
+        completion(true, nil)
+      }
+      return
+    }
+
+    guard let cgImage = images.popLast() else {
+      print("Error: invalid frame count")
+      exit(1)
+    }
+
+    let presentationTime = CMTime(value: Int64(frameNumber), timescale: fps)
+
+    if let pixelBuffer = createPixelBufferFromCGImage(
+      cgImage: cgImage, width: videoWidth, height: videoHeight)
+    {
+      pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime)
+    }
+
+    frameNumber += 1
+  }
+}
+
+func createPixelBufferFromCGImage(cgImage: CGImage, width: Int, height: Int) -> CVPixelBuffer? {
+  var pixelBuffer: CVPixelBuffer?
+  let options: [String: Any] = [
+    kCVPixelBufferCGImageCompatibilityKey as String: true,
+    kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+  ]
+
+  let status = CVPixelBufferCreate(
+    kCFAllocatorDefault, width, height, kCVPixelFormatType_32ARGB, options as CFDictionary,
+    &pixelBuffer)
+  if status != kCVReturnSuccess {
+    return nil
+  }
+
+  CVPixelBufferLockBaseAddress(pixelBuffer!, CVPixelBufferLockFlags(rawValue: 0))
+  let pixelData = CVPixelBufferGetBaseAddress(pixelBuffer!)
+
+  let rgbColorSpace = CGColorSpaceCreateDeviceRGB()
+  let context = CGContext(
+    data: pixelData, width: width, height: height, bitsPerComponent: 8,
+    bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer!), space: rgbColorSpace,
+    bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue)
+
+  if let context = context {
+    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+  }
+
+  CVPixelBufferUnlockBaseAddress(pixelBuffer!, CVPixelBufferLockFlags(rawValue: 0))
+
+  return pixelBuffer
 }
