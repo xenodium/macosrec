@@ -78,6 +78,18 @@ struct RecordCommand: ParsableCommand {
         Darwin.exit(1)
       }
 
+      if mov || gif {
+        print("Error: can't use --simultaneously with --mov or --gif")
+        Darwin.exit(1)
+      }
+
+      if let output = output,
+        URL(fileURLWithPath: output).pathExtension != "png"
+      {
+        print("Error: --png not compatible with \(output)")
+        Darwin.exit(1)
+      }
+
       let identifier = resolveWindowID(windowIdentifier)
       if let output = output {
         recorder = WindowRecorder(.png, for: identifier, URL(fileURLWithPath: output))
@@ -101,15 +113,42 @@ struct RecordCommand: ParsableCommand {
         }
 
         if mov {
+          if let output = output,
+            URL(fileURLWithPath: output).pathExtension != "mov"
+          {
+            print("Error: --mov not compatible with \(output)")
+            Darwin.exit(1)
+          }
           return WindowRecorder.MediaType.mov
         }
 
         if gif {
+          if let output = output,
+            URL(fileURLWithPath: output).pathExtension != "gif"
+          {
+            print("Error: --gif not compatible with \(output)")
+            Darwin.exit(1)
+          }
           return WindowRecorder.MediaType.gif
         }
 
-        // Default to mov otherwise
-        return WindowRecorder.MediaType.mov
+        guard let output = output else {
+          // Default to mov otherwise
+          return WindowRecorder.MediaType.mov
+        }
+
+        let ext = URL(fileURLWithPath: output).pathExtension
+
+        if ext == "mov" {
+          return WindowRecorder.MediaType.mov
+        }
+
+        if ext == "gif" {
+          return WindowRecorder.MediaType.gif
+        }
+
+        print("Error: Unsupported extension .\(ext)")
+        Darwin.exit(1)
       }()
 
       let identifier = resolveWindowID(windowIdentifier)
