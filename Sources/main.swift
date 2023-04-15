@@ -29,7 +29,7 @@ signal(SIGINT) { _ in
 
 signal(SIGTERM) { _ in
   recorder?.abort()
-  exit(0)
+  exit(1)
 }
 
 struct RecordCommand: ParsableCommand {
