@@ -38,12 +38,15 @@ struct RecordCommand: ParsableCommand {
 
   @Option(
     name: [.customShort("x"), .long],
-    help: ArgumentHelp("Take a screenshot of window number.", valueName: "window number"))
+    help: ArgumentHelp(
+      "Take a screenshot.", valueName: "app name or window id"))
   var screenshot: String?
 
   @Option(
     name: .shortAndLong,
-    help: ArgumentHelp("Start recording window number.", valueName: "window number"))
+    help: ArgumentHelp(
+      "Start recording.", valueName: "app name or window id")
+  )
   var record: String?
 
   @Flag(name: .shortAndLong, help: "Record as mov.")
@@ -69,23 +72,23 @@ struct RecordCommand: ParsableCommand {
       Darwin.exit(0)
     }
 
-    if let windowNumber = screenshot {
+    if let windowIdentifier = screenshot {
       if record != nil {
         print("Error: can't use --screenshot and --record simultaneously")
         Darwin.exit(1)
       }
 
-      let number = resolveWindowID(windowNumber)
+      let identifier = resolveWindowID(windowIdentifier)
       if let output = output {
-        recorder = WindowRecorder(.png, for: number, URL(fileURLWithPath: output))
+        recorder = WindowRecorder(.png, for: identifier, URL(fileURLWithPath: output))
       } else {
-        recorder = WindowRecorder(.png, for: number)
+        recorder = WindowRecorder(.png, for: identifier)
       }
       recorder?.save()
       Darwin.exit(0)
     }
 
-    if let windowNumber = record {
+    if let windowIdentifier = record {
       if recordingPid() != nil {
         print("Error: Already recording")
         Darwin.exit(1)
@@ -109,11 +112,11 @@ struct RecordCommand: ParsableCommand {
         return WindowRecorder.MediaType.mov
       }()
 
-      let number = resolveWindowID(windowNumber)
+      let identifier = resolveWindowID(windowIdentifier)
       if let output = output {
-        recorder = WindowRecorder(mediaType, for: number, URL(fileURLWithPath: output))
+        recorder = WindowRecorder(mediaType, for: identifier, URL(fileURLWithPath: output))
       } else {
-        recorder = WindowRecorder(mediaType, for: number)
+        recorder = WindowRecorder(mediaType, for: identifier)
       }
       recorder?.record()
       return
@@ -157,23 +160,23 @@ RunLoop.current.run()
 struct WindowInfo {
   let app: String
   let title: String
-  let number: CGWindowID
+  let identifier: CGWindowID
 }
 
 extension NSWorkspace {
   func printWindowList() {
     for window in allWindows() {
       if window.title.isEmpty {
-        print("\(window.number) \(window.app)")
+        print("\(window.identifier) \(window.app)")
       } else {
-        print("\(window.number) \(window.app) - \(window.title)")
+        print("\(window.identifier) \(window.app) - \(window.title)")
       }
     }
   }
 
-  func window(identifiedAs windowNumber: CGWindowID) -> WindowInfo? {
+  func window(identifiedAs windowIdentifier: CGWindowID) -> WindowInfo? {
     allWindows().first {
-      $0.number == windowNumber
+      $0.identifier == windowIdentifier
     }
   }
 
@@ -185,11 +188,12 @@ extension NSWorkspace {
       for window in windows ?? [] {
         if let windowPid = window[kCGWindowOwnerPID as String] as? Int,
           windowPid == app.processIdentifier,
-          let number = window[kCGWindowNumber as String] as? Int,
+          let identifier = window[kCGWindowNumber as String] as? Int,
           let appName = app.localizedName
         {
           let title = window[kCGWindowName as String] as? String ?? ""
-          windowInfos.append(WindowInfo(app: appName, title: title, number: CGWindowID(number)))
+          windowInfos.append(
+            WindowInfo(app: appName, title: title, identifier: CGWindowID(identifier)))
         }
       }
     }
@@ -215,8 +219,8 @@ class WindowRecorder {
     1.0 / Double(fps)
   }
 
-  init(_ mediaType: MediaType, for windowNumber: CGWindowID, _ urlOverride: URL? = nil) {
-    guard let foundWindow = NSWorkspace.shared.window(identifiedAs: windowNumber) else {
+  init(_ mediaType: MediaType, for windowIdentifier: CGWindowID, _ urlOverride: URL? = nil) {
+    guard let foundWindow = NSWorkspace.shared.window(identifiedAs: windowIdentifier) else {
       print("Error: window not found")
       exit(1)
     }
@@ -297,7 +301,7 @@ class WindowRecorder {
 
   private func windowImage() -> CGImage? {
     return CGWindowListCreateImage(
-      CGRect.null, CGWindowListOption.optionIncludingWindow, self.window.number,
+      CGRect.null, CGWindowListOption.optionIncludingWindow, self.window.identifier,
       CGWindowImageOption.boundsIgnoreFraming)
   }
 
@@ -446,18 +450,18 @@ func getDesktopFileURL(suffix: String, ext: String) -> URL? {
   return desktopURL
 }
 
-func resolveWindowID(_ windowNumber: String) -> CGWindowID {
-  if let number = CGWindowID(windowNumber) {
-    return number
+func resolveWindowID(_ windowIdentifier: String) -> CGWindowID {
+  if let identifier = CGWindowID(windowIdentifier) {
+    return identifier
   }
   if let window = NSWorkspace.shared.allWindows().filter({
     $0.app.trimmingCharacters(in: .whitespacesAndNewlines)
-      .caseInsensitiveCompare(windowNumber.trimmingCharacters(in: .whitespacesAndNewlines))
+      .caseInsensitiveCompare(windowIdentifier.trimmingCharacters(in: .whitespacesAndNewlines))
       == .orderedSame
   }).first {
-    return CGWindowID(window.number)
+    return CGWindowID(window.identifier)
   }
-  print("Error: Invalid window number")
+  print("Error: Invalid window identifier")
   Darwin.exit(1)
 }
 

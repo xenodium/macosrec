@@ -8,15 +8,19 @@ Take screenshots or videos of macOS windows from the command line.
 
 #+begin_src shell
   $ macosrec
-  USAGE: record-command [--list] [--screenshot <window number>] [--record <window number>] [--end]
+  USAGE: record-command [--list] [--screenshot <app name or window id>] [--record <app name or window id>] [--mov] [--gif] [--save] [--abort] [--output <optional output file path>]
 
   OPTIONS:
     -l, --list              List recordable windows.
-    -s, --screenshot <window number>
-                            Take a screenshot of window number.
-    -r, --record <window number>
-                            Start recording window number.
-    -e, --end               End recording.
+    -x, --screenshot <app name or window id>
+                            Take a screenshot.
+    -r, --record <app name or window id>
+                            Start recording.
+    -m, --mov               Record as mov.
+    -g, --gif               Record as gif.
+    -s, --save              Save active recording.
+    -a, --abort             Abort active recording.
+    -o, --output <optional output file path>
     -h, --help              Show help information.
 #+end_src
 
