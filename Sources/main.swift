@@ -106,7 +106,7 @@ struct RecordCommand: ParsableCommand {
         Darwin.exit(1)
       }
 
-      let mediaType = {
+      let mediaType: WindowRecorder.MediaType = {
         if screenshot != nil {
           print("Error: can't use --screenshot and --record simultaneously")
           Darwin.exit(1)
