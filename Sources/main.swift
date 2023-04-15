@@ -235,12 +235,17 @@ class WindowRecorder {
           exit(1)
         }
         guard
-          let image = windowImage()
+          let image = self.windowImage()
         else {
           print("Error: No image from window")
           exit(1)
         }
-        DispatchQueue.global(qos: .default).sync {
+        DispatchQueue.global(qos: .default).sync { [weak self] in
+          guard let self = self else {
+            print("Error: No recorder")
+            exit(1)
+          }
+
           guard let resizedImage = image.resize(compressionFactor: 1.0, scale: 0.7) else {
             print("Error: Could not resize frame")
             exit(1)
