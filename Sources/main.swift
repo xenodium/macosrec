@@ -21,6 +21,8 @@ import AVFoundation
 import ArgumentParser
 import Cocoa
 
+let packageVersion = "0.2.1"
+
 var recorder: WindowRecorder?
 
 signal(SIGINT) { _ in
@@ -33,6 +35,9 @@ signal(SIGTERM) { _ in
 }
 
 struct RecordCommand: ParsableCommand {
+  @Flag(name: [.customLong("version")], help: "Show version.")
+  var showVersion: Bool = false
+
   @Flag(name: .shortAndLong, help: "List recordable windows.")
   var list: Bool = false
 
@@ -67,6 +72,15 @@ struct RecordCommand: ParsableCommand {
   var output: String?
 
   mutating func run() throws {
+    if showVersion {
+      guard let binPath = CommandLine.arguments.first else {
+        print("Error: binary name not available")
+        Darwin.exit(1)
+      }
+      print("\(URL(fileURLWithPath: binPath).lastPathComponent) \(packageVersion)")
+      Darwin.exit(0)
+    }
+
     if list {
       NSWorkspace.shared.printWindowList()
       Darwin.exit(0)
