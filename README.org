@@ -24,14 +24,14 @@ Take screenshots or videos of macOS windows from the command line.
     -h, --help              Show help information.
 #+end_src
 * Install
-** Build
-#+begin_src sh
-  swift build
-#+end_src
 ** Homebrew
 #+begin_src sh
   brew tap xenodium/macosrec
   brew install macosrec
+#+end_src
+** Build
+#+begin_src sh
+  swift build
 #+end_src
 * Screenshot
 
