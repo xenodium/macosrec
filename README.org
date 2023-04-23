@@ -96,4 +96,8 @@ The gifs can get pretty large fairly quickly depending on the lenght of the reco
 
 I built this util to record demos I post at [[https://xenodium.com][xenodium.com]]. Does the job so far, but can likely take improvements, specially around image handling efficiency. PRs totally welcome.
 
+** Resizing windows while recording (not supported)
+
+While a video will be recorded if you resize the window during the recording session, it's unlikely to produce a file with the expected outcome. This feature is currently unsupported and out of scope. Having said that, if anyone's keen to implement it, a PR is totally welcome.
+
 👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]
