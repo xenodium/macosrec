@@ -4,6 +4,8 @@
 
 Take screenshots or videos of macOS windows from the command line.
 
+See [[https://xenodium.com/recordscreenshot-windows-the-lazy-way][Recording and screenshotting windows: the lazy way]].
+
 #+HTML: <img src="https://raw.githubusercontent.com/xenodium/macosrec/main/demo/record.gif" width="80%" /> <p><small><em>Note: This gif was captured with macosrec</em></small></p>
 
 #+begin_src shell
