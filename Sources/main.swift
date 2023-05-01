@@ -93,7 +93,7 @@ struct RecordCommand: ParsableCommand {
       }
 
       if mov || gif {
-        print("Error: can't use --simultaneously with --mov or --gif")
+        print("Error: can't use --screenshot with --mov or --gif")
         Darwin.exit(1)
       }
 
