@@ -21,7 +21,7 @@ import AVFoundation
 import ArgumentParser
 import Cocoa
 
-let packageVersion = "0.2.1"
+let packageVersion = "0.4.1"
 
 var recorder: WindowRecorder?
 
