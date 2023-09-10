@@ -21,7 +21,7 @@ import AVFoundation
 import ArgumentParser
 import Cocoa
 
-let packageVersion = "0.5.1"
+let packageVersion = "0.6.1"
 
 var recorder: WindowRecorder?
 
@@ -40,6 +40,9 @@ struct RecordCommand: ParsableCommand {
 
   @Flag(name: .shortAndLong, help: "List recordable windows.")
   var list: Bool = false
+
+  @Flag(name: .long, help: "Also include hidden windows when listing.")
+  var hidden: Bool = false
 
   @Option(
     name: [.customShort("x"), .long],
@@ -82,8 +85,13 @@ struct RecordCommand: ParsableCommand {
     }
 
     if list {
-      NSWorkspace.shared.printWindowList()
+      NSWorkspace.shared.printWindowList(includeHidden: hidden)
       Darwin.exit(0)
+    }
+
+    if hidden {
+      print("Error: can't use --hidden with anything other than --list")
+      Darwin.exit(1)
     }
 
     if let windowIdentifier = screenshot {
@@ -217,8 +225,8 @@ struct WindowInfo {
 }
 
 extension NSWorkspace {
-  func printWindowList() {
-    for window in allWindows() {
+  func printWindowList(includeHidden: Bool) {
+    for window in allWindows(includeHidden: includeHidden) {
       if window.title.isEmpty {
         print("\(window.identifier) \(window.app)")
       } else {
@@ -228,15 +236,16 @@ extension NSWorkspace {
   }
 
   func window(identifiedAs windowIdentifier: CGWindowID) -> WindowInfo? {
-    allWindows().first {
+    allWindows(includeHidden: true).first {
       $0.identifier == windowIdentifier
     }
   }
 
-  func allWindows() -> [WindowInfo] {
+  func allWindows(includeHidden: Bool) -> [WindowInfo] {
     var windowInfos = [WindowInfo]()
     let windows =
-      CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]
+      CGWindowListCopyWindowInfo(includeHidden ? .optionAll : .optionOnScreenOnly, kCGNullWindowID)
+      as? [[String: Any]]
     for app in NSWorkspace.shared.runningApplications {
       for window in windows ?? [] {
         if let windowPid = window[kCGWindowOwnerPID as String] as? Int,
@@ -507,7 +516,7 @@ func resolveWindowID(_ windowIdentifier: String) -> CGWindowID {
   if let identifier = CGWindowID(windowIdentifier) {
     return identifier
   }
-  if let window = NSWorkspace.shared.allWindows().filter({
+  if let window = NSWorkspace.shared.allWindows(includeHidden: true).filter({
     $0.app.trimmingCharacters(in: .whitespacesAndNewlines)
       .caseInsensitiveCompare(windowIdentifier.trimmingCharacters(in: .whitespacesAndNewlines))
       == .orderedSame
