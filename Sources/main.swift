@@ -715,19 +715,19 @@ func recognizeText(in image: NSImage, useClipboard: Bool, saveToFile outputPath:
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(topCandidate.string, forType: .string)
-          } else {
-            if let outputPath = outputPath {
-              let outputURL = URL(fileURLWithPath: outputPath)
-              do {
-                try topCandidate.string.write(to: outputURL, atomically: true, encoding: .utf8)
-              } catch {
-                print(String(describing: error))
-                Darwin.exit(1)
-              }
-            } else {
-              print(topCandidate.string)
-            }
           }
+          if let outputPath = outputPath {
+            let outputURL = URL(fileURLWithPath: outputPath)
+            do {
+              try topCandidate.string.write(to: outputURL, atomically: true, encoding: .utf8)
+            } catch {
+              print(String(describing: error))
+              Darwin.exit(1)
+            }
+          } else {
+            print(topCandidate.string)
+          }
+
         }
       }
     }
