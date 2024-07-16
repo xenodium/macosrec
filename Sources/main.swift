@@ -23,7 +23,7 @@ import ArgumentParser
 import Cocoa
 import Vision
 
-let packageVersion = "0.6.1"
+let packageVersion = "0.7.1"
 
 var recorder: WindowRecorder?
 
