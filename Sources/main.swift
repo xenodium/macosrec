@@ -1,7 +1,7 @@
 /*
  * This file is part of macosrec.
  *
- * Copyright (C) 2023 Álvaro Ramírez https://xenodium.com
+ * Copyright (C) 2024 Álvaro Ramírez https://xenodium.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,8 +18,10 @@
  */
 
 import AVFoundation
+import AppKit
 import ArgumentParser
 import Cocoa
+import Vision
 
 let packageVersion = "0.6.1"
 
@@ -57,6 +59,12 @@ struct RecordCommand: ParsableCommand {
   )
   var record: String?
 
+  @Flag(name: [.customShort("c"), .long], help: "Select and recognize text in screen region")
+  var ocr: Bool = false
+
+  @Flag(name: [.customShort("b"), .long], help: "Save --ocr text to clipboard")
+  var clipboard: Bool = false
+
   @Flag(name: .shortAndLong, help: "Record as mov.")
   var mov: Bool = false
 
@@ -92,6 +100,34 @@ struct RecordCommand: ParsableCommand {
     if hidden {
       print("Error: can't use --hidden with anything other than --list")
       Darwin.exit(1)
+    }
+
+    if ocr {
+      if screenshot != nil {
+        print("Error: can't use --ocr and --screenshot simultaneously")
+        Darwin.exit(1)
+      }
+
+      if record != nil {
+        print("Error: can't use --ocr and --record simultaneously")
+        Darwin.exit(1)
+      }
+
+      if mov || gif {
+        print("Error: can't use --ocr with --mov or --gif")
+        Darwin.exit(1)
+      }
+
+      if let output = output,
+        URL(fileURLWithPath: output).pathExtension != "txt"
+      {
+        print("Error: --output file must end in .txt")
+        Darwin.exit(1)
+      }
+      if let image = captureScreenImage() {
+        recognizeText(in: image, useClipboard: clipboard, saveToFile: output)
+      }
+      Darwin.exit(0)
     }
 
     if let windowIdentifier = screenshot {
@@ -635,4 +671,74 @@ func createPixelBufferFromCGImage(cgImage: CGImage, width: Int, height: Int) -> 
   CVPixelBufferUnlockBaseAddress(pixelBuffer!, CVPixelBufferLockFlags(rawValue: 0))
 
   return pixelBuffer
+}
+
+private func captureScreenImage() -> NSImage? {
+  let process = Process()
+  let screenCaptureURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+  process.executableURL = screenCaptureURL
+  guard
+    let outputFilePath =
+      NSURL.fileURL(withPathComponents: [NSTemporaryDirectory(), "screen.png"])?.path
+  else {
+    return nil
+  }
+  process.arguments = ["-i", outputFilePath]
+  do {
+    try process.run()
+  } catch {
+    print(String(describing: error))
+    Darwin.exit(1)
+  }
+  process.waitUntilExit()
+  return NSImage(contentsOfFile: outputFilePath)
+}
+
+func recognizeText(in image: NSImage, useClipboard: Bool, saveToFile outputPath: String?) {
+  guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+  else {
+    print("Error: Failed to load image.")
+    Darwin.exit(1)
+  }
+  let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+  let textRecognitionRequest = VNRecognizeTextRequest { (request, error) in
+    guard error == nil else {
+      print(String(describing: error))
+      Darwin.exit(1)
+    }
+
+    if let observations = request.results as? [VNRecognizedTextObservation] {
+      for observation in observations {
+        if let topCandidate = observation.topCandidates(1).first {
+          if useClipboard {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(topCandidate.string, forType: .string)
+          } else {
+            if let outputPath = outputPath {
+              let outputURL = URL(fileURLWithPath: outputPath)
+              do {
+                try topCandidate.string.write(to: outputURL, atomically: true, encoding: .utf8)
+              } catch {
+                print(String(describing: error))
+                Darwin.exit(1)
+              }
+            } else {
+              print(topCandidate.string)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  textRecognitionRequest.automaticallyDetectsLanguage = true
+
+  do {
+    try requestHandler.perform([textRecognitionRequest])
+  } catch {
+    print(String(describing: error))
+    Darwin.exit(1)
+  }
 }
