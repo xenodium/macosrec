@@ -10,14 +10,18 @@ See [[https://xenodium.com/recordscreenshot-windows-the-lazy-way][Recording and 
 
 #+begin_src shell
   $ macosrec
-  USAGE: record-command [--list] [--screenshot <app name or window id>] [--record <app name or window id>] [--mov] [--gif] [--save] [--abort] [--output <optional output file path>]
+  USAGE: record-command [--version] [--list] [--hidden] [--screenshot <app name or window id>] [--record <app name or window id>] [--ocr] [--clipboard] [--mov] [--gif] [--save] [--abort] [--output <optional output file path>]
 
   OPTIONS:
+    --version               Show version.
     -l, --list              List recordable windows.
+    --hidden                Also include hidden windows when listing.
     -x, --screenshot <app name or window id>
                             Take a screenshot.
     -r, --record <app name or window id>
                             Start recording.
+    -c, --ocr               Select and recognize text in screen region.
+    -b, --clipboard         Save --ocr text to clipboard.
     -m, --mov               Record as mov.
     -g, --gif               Record as gif.
     -s, --save              Save active recording.

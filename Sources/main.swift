@@ -59,10 +59,10 @@ struct RecordCommand: ParsableCommand {
   )
   var record: String?
 
-  @Flag(name: [.customShort("c"), .long], help: "Select and recognize text in screen region")
+  @Flag(name: [.customShort("c"), .long], help: "Select and recognize text in screen region.")
   var ocr: Bool = false
 
-  @Flag(name: [.customShort("b"), .long], help: "Save --ocr text to clipboard")
+  @Flag(name: [.customShort("b"), .long], help: "Save --ocr text to clipboard.")
   var clipboard: Bool = false
 
   @Flag(name: .shortAndLong, help: "Record as mov.")
