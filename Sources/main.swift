@@ -23,7 +23,7 @@ import ArgumentParser
 import Cocoa
 import Vision
 
-let packageVersion = "0.7.2"
+let packageVersion = "0.7.3"
 
 var recorder: WindowRecorder?
 
@@ -58,6 +58,13 @@ struct RecordCommand: ParsableCommand {
       "Start recording.", valueName: "app name or window id")
   )
   var record: String?
+
+  @Option(
+    name: .shortAndLong,
+    help: ArgumentHelp(
+      "Input image file (for --ocr only).", valueName: "input image file")
+  )
+  var input: String?
 
   @Flag(name: [.customShort("c"), .long], help: "Select and recognize text in screen region.")
   var ocr: Bool = false
@@ -124,15 +131,30 @@ struct RecordCommand: ParsableCommand {
         print("Error: --output file must end in .txt")
         Darwin.exit(1)
       }
-      if let image = captureScreenImage() {
-        recognizeText(in: image, useClipboard: clipboard, saveToFile: output)
+
+      if let input = input,
+        let capturedImage = NSImage(contentsOfFile: input)
+      {
+        recognizeText(in: capturedImage, useClipboard: clipboard, saveToFile: output)
+        Darwin.exit(0)
       }
+
+      if let capturedImage = captureScreenImage() {
+        recognizeText(in: capturedImage, useClipboard: clipboard, saveToFile: output)
+        Darwin.exit(0)
+      }
+
       Darwin.exit(0)
     }
 
     if let windowIdentifier = screenshot {
       if record != nil {
         print("Error: can't use --screenshot and --record simultaneously")
+        Darwin.exit(1)
+      }
+
+      if input != nil {
+        print("Error: can't use --screenshot with --input")
         Darwin.exit(1)
       }
 
@@ -167,6 +189,11 @@ struct RecordCommand: ParsableCommand {
       let mediaType: WindowRecorder.MediaType = {
         if screenshot != nil {
           print("Error: can't use --screenshot and --record simultaneously")
+          Darwin.exit(1)
+        }
+
+        if input != nil {
+          print("Error: can't use --record with --input")
           Darwin.exit(1)
         }
 
@@ -434,7 +461,8 @@ class WindowRecorder {
 
     guard
       let destinationGIF = CGImageDestinationCreateWithURL(
-        url as NSURL, kUTTypeGIF, images.count, nil)
+        url as NSURL,
+        kUTTypeGIF, images.count, nil)
     else {
       print("Error: No destination GIF")
       exit(1)
@@ -708,27 +736,29 @@ func recognizeText(in image: NSImage, useClipboard: Bool, saveToFile outputPath:
       Darwin.exit(1)
     }
 
+    var recognizedText = ""
     if let observations = request.results as? [VNRecognizedTextObservation] {
       for observation in observations {
         if let topCandidate = observation.topCandidates(1).first {
-          if useClipboard {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(topCandidate.string, forType: .string)
-          }
-          if let outputPath = outputPath {
-            let outputURL = URL(fileURLWithPath: outputPath)
-            do {
-              try topCandidate.string.write(to: outputURL, atomically: true, encoding: .utf8)
-            } catch {
-              print(String(describing: error))
-              Darwin.exit(1)
-            }
-          } else {
-            print(topCandidate.string)
-          }
-
+          recognizedText += topCandidate.string + "\n"
         }
+      }
+      recognizedText = recognizedText.trimmingCharacters(in: .whitespaces)
+      if useClipboard {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(recognizedText, forType: .string)
+      }
+      if let outputPath = outputPath {
+        let outputURL = URL(fileURLWithPath: outputPath)
+        do {
+          try recognizedText.write(to: outputURL, atomically: true, encoding: .utf8)
+        } catch {
+          print(String(describing: error))
+          Darwin.exit(1)
+        }
+      } else {
+        print(recognizedText)
       }
     }
   }
