@@ -2,7 +2,7 @@
 
 * macosrec
 
-Take screenshots or videos of macOS windows from the command line.
+Take screenshots or videos of macOS windows from the command line (also includes [[https://en.wikipedia.org/wiki/Optical_character_recognition][OCR]]).
 
 See [[https://xenodium.com/recordscreenshot-windows-the-lazy-way][Recording and screenshotting windows: the lazy way]].
 
@@ -96,6 +96,35 @@ The gifs can get pretty large fairly quickly depending on the lenght of the reco
 
 #+begin_src sh
   gifsicle -O3 large.gif --lossy=80 -o smaller.gif
+#+end_src
+
+* OCR
+** Selecting a region
+The =--ocr= flag defaults to selecting a screen region (unless =--input=) is given.
+#+begin_src sh
+  $ macosrec --ocr
+
+  Hello this text was recognized
+#+end_src
+
+** From existing image
+
+Use the =--input= flag:
+
+#+begin_src sh
+  $ macosrec --ocr --input /path/to/image.png
+
+  Hello this text was recognized
+#+end_src
+
+** Save to clipboard
+
+Use the =--clipboard= flat:
+
+#+begin_src sh
+  $ macosrec --ocr --input /path/to/image.png --clipboard
+
+  Hello this text was recognized
 #+end_src
 
 * Disclaimer
