@@ -21,9 +21,10 @@ import AVFoundation
 import AppKit
 import ArgumentParser
 import Cocoa
+import Speech
 import Vision
 
-let packageVersion = "0.7.3"
+let packageVersion = "0.8.1"
 
 var recorder: WindowRecorder?
 
@@ -62,12 +63,26 @@ struct RecordCommand: ParsableCommand {
   @Option(
     name: .shortAndLong,
     help: ArgumentHelp(
-      "Input image file (for --ocr only).", valueName: "input image file")
+      "Input file (for --ocr or --speech-to-text only).",
+      valueName: "input image or audio file")
   )
   var input: String?
 
+  @Option(
+    name: [.customShort("t"), .long],
+    help: ArgumentHelp(
+      "Locale, for example \"ja-JP\" (for --speech-to-text only).",
+      valueName: "locale for speech to text")
+  )
+  var locale: String?
+
   @Flag(name: [.customShort("c"), .long], help: "Select and recognize text in screen region.")
   var ocr: Bool = false
+
+  @Flag(
+    name: [.customShort("z"), .customLong("speech-to-text")],
+    help: "Recognize text in speech audio.")
+  var speechToText: Bool = false
 
   @Flag(name: [.customShort("b"), .long], help: "Save --ocr text to clipboard.")
   var clipboard: Bool = false
@@ -109,9 +124,62 @@ struct RecordCommand: ParsableCommand {
       Darwin.exit(1)
     }
 
+    if speechToText {
+      if ocr {
+        print("Error: can't use --ocr and --speech-to-text simultaneously")
+        Darwin.exit(1)
+      }
+
+      if screenshot != nil {
+        print("Error: can't use --ocr and --screenshot simultaneously")
+        Darwin.exit(1)
+      }
+
+      if record != nil {
+        print("Error: can't use --ocr and --record simultaneously")
+        Darwin.exit(1)
+      }
+
+      if mov || gif {
+        print("Error: can't use --ocr with --mov or --gif")
+        Darwin.exit(1)
+      }
+
+      if let output = output,
+        URL(fileURLWithPath: output).pathExtension != "txt"
+      {
+        print("Error: --output file must end in .txt")
+        Darwin.exit(1)
+      }
+
+      guard let input = input else {
+        print("Error: Missing --input file")
+        Darwin.exit(0)
+      }
+
+      guard let locale = locale else {
+        print("Error: Missing --locale")
+        Darwin.exit(0)
+      }
+
+      let url = URL(filePath: input)
+      Recognizer.recognizeAudioText(in: url, locale: locale, saveToFile: output)
+      return
+    }
+
     if ocr {
       if screenshot != nil {
         print("Error: can't use --ocr and --screenshot simultaneously")
+        Darwin.exit(1)
+      }
+
+      if speechToText {
+        print("Error: can't use --ocr and --speech-to-text simultaneously")
+        Darwin.exit(1)
+      }
+
+      if locale != nil {
+        print("Error: can't use --ocr and --locale simultaneously")
         Darwin.exit(1)
       }
 
@@ -135,12 +203,12 @@ struct RecordCommand: ParsableCommand {
       if let input = input,
         let capturedImage = NSImage(contentsOfFile: input)
       {
-        recognizeText(in: capturedImage, useClipboard: clipboard, saveToFile: output)
+        recognizeImageText(in: capturedImage, useClipboard: clipboard, saveToFile: output)
         Darwin.exit(0)
       }
 
       if let capturedImage = captureScreenImage() {
-        recognizeText(in: capturedImage, useClipboard: clipboard, saveToFile: output)
+        recognizeImageText(in: capturedImage, useClipboard: clipboard, saveToFile: output)
         Darwin.exit(0)
       }
 
@@ -150,6 +218,11 @@ struct RecordCommand: ParsableCommand {
     if let windowIdentifier = screenshot {
       if record != nil {
         print("Error: can't use --screenshot and --record simultaneously")
+        Darwin.exit(1)
+      }
+
+      if locale != nil {
+        print("Error: can't use --screenshot and --locale simultaneously")
         Darwin.exit(1)
       }
 
@@ -189,6 +262,11 @@ struct RecordCommand: ParsableCommand {
       let mediaType: WindowRecorder.MediaType = {
         if screenshot != nil {
           print("Error: can't use --screenshot and --record simultaneously")
+          Darwin.exit(1)
+        }
+
+        if locale != nil {
+          print("Error: can't use --locale and --record simultaneously")
           Darwin.exit(1)
         }
 
@@ -722,7 +800,56 @@ private func captureScreenImage() -> NSImage? {
   return NSImage(contentsOfFile: outputFilePath)
 }
 
-func recognizeText(in image: NSImage, useClipboard: Bool, saveToFile outputPath: String?) {
+struct Recognizer {
+  static func recognizeAudioText(in url: URL, locale: String, saveToFile outputPath: String?) {
+    SFSpeechRecognizer.requestAuthorization { authStatus in
+      switch authStatus {
+      case .authorized:
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale)) else {
+          print("Error: invalid locale \"\(locale)\"")
+          Darwin.exit(1)
+        }
+        let request = SFSpeechURLRecognitionRequest(url: url)
+        recognizer.recognitionTask(with: request) { result, error in
+          guard let result = result else {
+            print("Recognition failed: \(error?.localizedDescription ?? "Unknown error")")
+            Darwin.exit(1)
+          }
+
+          if result.isFinal {
+            if let outputPath = outputPath {
+              let outputURL = URL(fileURLWithPath: outputPath)
+              do {
+                try result.bestTranscription.formattedString.write(
+                  to: outputURL, atomically: true, encoding: .utf8)
+                Darwin.exit(0)
+              } catch {
+                print(String(describing: error))
+                Darwin.exit(1)
+              }
+            } else {
+              print(result.bestTranscription.formattedString)
+              Darwin.exit(0)
+            }
+          }
+        }
+      case .denied:
+        print("Speech recognition authorization denied.")
+        Darwin.exit(1)
+      case .restricted:
+        print("Speech recognition authorization restricted.")
+        Darwin.exit(1)
+      case .notDetermined:
+        print("Speech recognition authorization not determined.")
+        Darwin.exit(1)
+      @unknown default:
+        Darwin.exit(1)
+      }
+    }
+  }
+}
+
+func recognizeImageText(in image: NSImage, useClipboard: Bool, saveToFile outputPath: String?) {
   guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
   else {
     print("Error: Failed to load image.")

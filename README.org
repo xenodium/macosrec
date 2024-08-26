@@ -127,6 +127,15 @@ Use the =--clipboard= flat:
   Hello this text was recognized
 #+end_src
 
+* Speech to text
+Recognizing text with in speech =--speech-to-text= is only supported via =--input= audio file (i.e. .mp3).
+
+#+begin_src sh
+  $ macosrec --speech-to-text --locale "en-GB" --input path/to/audio.mp3
+
+  Hello this text was recognized
+#+end_src
+
 * Disclaimer
 
 I built this util to record demos I post at [[https://xenodium.com][xenodium.com]]. Does the job so far, but can likely take improvements, specially around image handling efficiency. PRs totally welcome.
