@@ -22,9 +22,10 @@ import AppKit
 import ArgumentParser
 import Cocoa
 import Speech
+import UniformTypeIdentifiers
 import Vision
 
-let packageVersion = "0.8.1"
+let packageVersion = "0.8.2"
 
 var recorder: WindowRecorder?
 
@@ -162,7 +163,7 @@ struct RecordCommand: ParsableCommand {
         Darwin.exit(0)
       }
 
-      let url = URL(filePath: input)
+      let url = URL(fileURLWithPath: input)
       Recognizer.recognizeAudioText(in: url, locale: locale, saveToFile: output)
       return
     }
@@ -540,7 +541,7 @@ class WindowRecorder {
     guard
       let destinationGIF = CGImageDestinationCreateWithURL(
         url as NSURL,
-        kUTTypeGIF, images.count, nil)
+        UTType.gif.identifier as CFString, images.count, nil)
     else {
       print("Error: No destination GIF")
       exit(1)
@@ -890,7 +891,9 @@ func recognizeImageText(in image: NSImage, useClipboard: Bool, saveToFile output
     }
   }
 
-  textRecognitionRequest.automaticallyDetectsLanguage = true
+  if #available(macOS 13, *) {
+    textRecognitionRequest.automaticallyDetectsLanguage = true
+  }
 
   do {
     try requestHandler.perform([textRecognitionRequest])

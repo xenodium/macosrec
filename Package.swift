@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
   name: "macosrec",
   platforms: [
-    .macOS(.v13)
+    .macOS(.v12)
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-argument-parser", from: "0.3.0")
